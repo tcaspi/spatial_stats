@@ -14,10 +14,7 @@ library(mapview)
 library(ggspatial)
 library(plyr)
 
-#R has a rich ecosystem of packages to perform spatial analysis. In this session, we will run quickly over
-#the different spatial data types, how they are handled in R, and some simple functions that we use
-#often in movement ecology analysis. This is not an exhaustive list, so I encourage you to look at the 
-#documentation for these packages, and check out the following free ebooks...#
+#R has a rich ecosystem of packages to perform spatial analysis. In this session, we will run quickly over the different spatial data types, how they are handled in R, and some simple functions that we use often in movement ecology analysis. This is not an exhaustive list, so I encourage you to look at the documentation for these packages, and check out the following free ebooks...
 
 #Geocomputation with R; Lovelace, Nowosad and Muenchow. 
 #https://geocompr.robinlovelace.net#
@@ -26,9 +23,7 @@ library(plyr)
 #http://gis.humboldt.edu/OLM/r/Spatial%20Analysis%20With%20R.pdf#
 
 #There are currently two major spatial R packages that you should become accustomed with, sp and sf.
-#sp is older, but its data structures are still the primary input for a lot of packages used in movement
-#ecology (e.g. adehabitat). sf is the tidyverse update on sp, includes some great functionality, and works
-#nicely with other tidyverse tools (e.g. ggplot2). We will start with sp...
+#sp is older, but its data structures are still the primary input for a lot of packages used in movement ecology (e.g. adehabitat). sf is the tidyverse update on sp, includes some great functionality, and works nicely with other tidyverse tools (e.g. ggplot2). We will start with sp...
 
 ############################################################################################################
 #SP#
@@ -37,13 +32,12 @@ library(plyr)
 #Those of you that have used GIS should be quite familiar with these. Let's look at these individually;
 
 #Points#
-#Points are features with just a single set of coordinates (x,y). An example of points we often run in to
-#in movement ecology are GPS telemetry data. These can be loaded in to R using the following code...
+#Points are features with just a single set of coordinates (x,y). An example of points we often run into in movement ecology are GPS telemetry data. These can be loaded in to R using the following code...
 
 #First set the working directory to the location of the seminar materials...
 
 #load the data as a dataframe from csv
-elk_data <- read.csv("Spatial_Wiggins_Elk.csv", header = T, stringsAsFactors = F)
+elk_data <- read.csv("Seminar 1 Spatial Data in R/Spatial_Wiggins_Elk.csv", header = T, stringsAsFactors = F)
 head(elk_data) #take a quick look at whats in the df
 
 #set time to POSIXct
@@ -70,10 +64,11 @@ plot(elk_data, axes = T) #axes show lon/lat
 #Luckily, we can manipulate sp's dataframes the same way we would any other data frame in R
 
 #Exercise 1: Write some code that would remove the outlier, but leave valid data intact (5 mins)
-#----------------------------------------------------------------------------------------------------------
+#----------------------------------------------------------------------------------------------
 #Answer 1:
+elk_data <- elk_data[elk_data$Latitude > 20, ]
 
-#----------------------------------------------------------------------------------------------------------
+#----------------------------------------------------------------------------------------------
 
 #Take a look at the data now it has been corrected...
 plot(elk_data, axes = T)
@@ -89,12 +84,9 @@ plot(elk_utm, axes = T) #Notice now axes show metres!
 #Lines are similar to points, but now each feature is represented by a vector of coordinates (c(x,x,x),c(y,y,y))
 #common examples we might encounter in movement ecology are roads and rivers.
 
-#Lines can be loaded and set up manually as above with sp, but given a lot of this information will be provided to you
-#in ESRI shapefiles, we will load an example using the readOGR function in rgdal. You should note that a
-#lot of spatial reading and writing is done using rgdal, which is the r wrapper package for the GDAL
-#library.
+#Lines can be loaded and set up manually as above with sp, but given a lot of this information will be provided to you in ESRI shapefiles, we will load an example using the readOGR function in rgdal. You should note that a lot of spatial reading and writing is done using rgdal, which is the r wrapper package for the GDAL library.
 
-rivers <- readOGR('wiggins_rivers.shp') #note this creates the SpatialLinesDataFrame, an sp class object
+rivers <- readOGR('Seminar 1 Spatial Data in R/wiggins_rivers.shp') #note this creates the SpatialLinesDataFrame, an sp class object
 proj4string(rivers)
 
 #We can access the attribute table for this layer by looking in the data slot
@@ -104,12 +96,9 @@ rivers@data
 plot(elk_utm, col = 'black', axes=T) ; plot(rivers, col = 'blue', add=T) #plot our elk data with the rivers
 
 #Polygons#
-#polygons are the next increment in vector data. Like lines, they have a vector of coordinates, but now
-#their first and last coordinates are always the same, so they end up where they started, and discribe a 
-#discrete region or area. Common examples of features you might see as polygons are country borders, 
-#administrative boundaries etc. 
+#polygons are the next increment in vector data. Like lines, they have a vector of coordinates, but now their first and last coordinates are always the same, so they end up where they started, and describe a discrete region or area. Common examples of features you might see as polygons are country borders, administrative boundaries etc. 
 
-pub_lands <- readOGR('wiggins_lands.shp') #load in an example polygon data frame, parcels of public land
+pub_lands <- readOGR('Seminar 1 Spatial Data in R/wiggins_lands.shp') #load in an example polygon data frame, parcels of public land
 proj4string(pub_lands) #check the projection
 
 #we can check that all of our projections are the same using
@@ -119,36 +108,40 @@ plot(pub_lands)
 plot(pub_lands, axes = T, lwd = 2) ; plot(rivers, col = 'blue', axes=T, add=T) #plot our rivers and public lands
 
 #A quick note on projections...
-#Sometimes you'll be given a CSV file by someone and you won't know what projection it's in. In cases like
-#these it helps to know some common projections for your study site. You can check if you have the projection
-#right by plotting data over a world map in the same projection.
+#Sometimes you'll be given a CSV file by someone and you won't know what projection it's in. In cases like these it helps to know some common projections for your study site. You can check if you have the projection right by plotting data over a world map in the same projection.
 
-world <- readOGR('Countries_WGS84.shp')
+world <- readOGR('Seminar 1 Spatial Data in R/Countries_WGS84.shp')
 
 plot(world); plot(elk_data, add = T, col = 'red') #data should appear as a red cross in WY
 
-proj4string(world); proj4string(elk_data) #are these the same?
+proj4string(world); proj4string(elk_data) #are these the same? YES!
 
 #if data don't appear in the right place, the projection might be incorrect...
 
-#Exercise 2: Load the csv file 'elk_other_proj.csv', take a look at the coordinates in columns X and Y, 
-#what do you notice about them? Can you make them a spatial object, which projection do you need to assign
-#in order to get them to appear in the right place on the world map? Hint, you can either assign the projection
-#and convert to WGS84 to match the map, or reproject the map using spTransform(). What projections are
-#appropriate for this part of North America? (10 mins)
+#Exercise 2: Load the csv file 'elk_other_proj.csv', take a look at the coordinates in columns X and Y, what do you notice about them? Can you make them a spatial object, which projection do you need to assign in order to get them to appear in the right place on the world map? Hint, you can either assign the projection and convert to WGS84 to match the map, or reproject the map using spTransform(). What projections are appropriate for this part of North America? (10 mins)
 
-#----------------------------------------------------------------------------------------------------------
+#----------------------------------------------------------------------------------------------
 #Answer 2:
+elk_other <- read.csv("Seminar 1 Spatial Data in R/elk_other_proj.csv") #load the data
+coordinates(elk_other) <- ~ X + Y #set the coordinates
+proj4string(elk_other) <- CRS("+init=epsg:5070") #set the CRS to NAD83 projection(or anything that is fitting); NAD83 is commonly used in North America
 
-#----------------------------------------------------------------------------------------------------------
+#transform the world map (countries shapefile saved as "world") into the same CRS as defined by elk_other. This can be done two different ways
+new.world <- spTransform(world, CRS("+init=epsg:5070")) #just transform world's CRS to the same epsg as we set for elk data
+new.world2 <- spTransform(world, proj4string(elk_other)) #transform world's CRS to that of the spatial object elk_other
 
-############################################################################################################
+plot(new.world, axes = T); plot(elk_other, col = "red", add = T)
+plot(new.world2, axes = T) ; plot(elk_other, col = "red", add = T)
+
+proj4string(elk_other) == proj4string(new.world) #check that the projections are the same
+proj4string(elk_other) == proj4string(new.world2)#check that the projections are the same
+#----------------------------------------------------------------------------------------------
+
+###############################################################################################
 #Common spatial functions#
-#So far we've seen how rgdal helps get spatial data in to R and sp provides methods and classes to handle 
-#the data once its there...
+#So far we've seen how rgdal helps get spatial data in to R (readOGR) and sp provides methods and classes to handle the data once its there...
 
-#A third package, rgeos, provides some basic functions to manipulate the data. These three packages
-#form the core of the sp "R-Spatial" package ecosystem.
+#A third package, rgeos, provides some basic functions to manipulate the data. These three packages form the core of the sp "R-Spatial" package ecosystem.
 
 #The rgeos package contains a number of useful spatial functions for dealing with sp objects...
 
@@ -160,52 +153,62 @@ gDistance(elk_utm[1,], pub_lands[pub_lands$SURFACE == "State",]) #finds distance
 elk_500m <- gBuffer(elk_utm[1:5,], width = 500) #just do the first 5 points because it's quick
 plot(elk_500m, lwd = 2, col = 'green'); plot(elk_utm[1:5,], col = 'blue', add = T)
 
-#gIntersects returns true or false whether two features touch, which is useful for checking if elk are
-#on public land
+#gIntersects returns true or false whether two features touch, which is useful for checking if elk are on public land
 gIntersects(elk_utm[1,], pub_lands, byid = T) #include argument byid=T to check each polygon
 pub_lands$SURFACE[gIntersects(elk_utm[1,], pub_lands, byid = T)] #returns the value of SURFACE at elk_utm[1,]
 
 #Exercise 3:
-#A common task is to measure the distance of each GPS location to a linear feature like a river. Running
-#gDistance(elk_utm, rivers, byid=T) would return an nrow(x) by nrow(y) matrix, and we aren't too bothered
-#about comparing each location to each point on every river (takes a long time on large layers!). 
+#A common task is to measure the distance of each GPS location to a linear feature like a river. Running gDistance(elk_utm, rivers, byid=T) would return an nrow(x) by nrow(y) matrix, and we aren't too bothered about comparing each location to each point on every river (takes a long time on large layers!). 
 
-#Write a for loop that fills a new column, 'dist_river', in the elk_utm attribute table, 
-#with the distance between each location and the nearest point on the rivers object (10 minutes)
+#Write a for loop that fills a new column, 'dist_river', in the elk_utm attribute table,with the distance between each location and the nearest point on the rivers object (10 minutes)
 
-#I've included a template for loop for you to fill in below, which will monitor progress using a
-#progress bar, and also time the calculations for us to compare our solutions...
+#I've included a template for loop for you to fill in below, which will monitor progress using a progress bar, and also time the calculations for us to compare our solutions...
 
 #For Loop Template#
 dechrau <- Sys.time()
-total <- #enter an appropriate max number here
+total <- length(elk_utm)
+
+#You can speed up this task by cutting the rivers lines object to an area around the GPS data
+#That way, R doesn't check the gDistance to parts of the river that are far away, saving time!
+
+#Make a bbox to cut the rivers to, using the following order
+#[(x_min, y_min), (x_min, y_max), (x_max, y_max), (x_max, y_min), (x_min, y_min)]
+coords = matrix(c(elk_utm@bbox[1], elk_utm@bbox[2],
+                  elk_utm@bbox[1], elk_utm@bbox[4],
+                  elk_utm@bbox[3], elk_utm@bbox[4],
+                  elk_utm@bbox[3], elk_utm@bbox[2],
+                  elk_utm@bbox[1], elk_utm@bbox[2]), 
+                ncol = 2, byrow = TRUE)
+
+P1 = Polygon(coords) #turn the bbox numbers into a polygon
+Ps1 = SpatialPolygons(list(Polygons(list(P1), ID = "a")), proj4string=CRS("+proj=utm +zone=12 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0")) #project the polygon into the correct CRS
+plot(Ps1)
+
+buffer <- gBuffer(Ps1, width = 4000) #make a buffer around the polygon that is identical to it
+plot(buffer)
+
+cut_river <- rivers[c(gIntersects(rivers, buffer, byid=T)),] #cut the rivers to fit this buffer
+plot(buffer);plot(rivers, add=T) #check that no plausible rivers are cut!
+plot(buffer);plot(cut_river, add=T); plot(elk_utm, col='blue', add=T) 
+
+
 pb <- txtProgressBar(min = 0, max = total, style = 3)
 for (i in 1:total) {
  
-  #Enter your code here#
-  
-  setTxtProgressBar(pb, i)
+elk_utm$dist_river[i] <- gDistance(cut_river, elk_utm[i,])
+    setTxtProgressBar(pb, i)
 }
 close(pb)
 diwedd <- Sys.time()
 amser <- diwedd-dechrau
 print(paste("Measurements took",round(diwedd-dechrau,2),attributes(amser)$units,sep = " "))
 
-#----------------------------------------------------------------------------------------------------------
-
-#Answer 3:
-
-
-#----------------------------------------------------------------------------------------------------------
-
 ############################################################################################################
 #SF#
-#As mentioned above, the sf package has many of sp's functionality, but has a couple of important advantages,
-#namely, that it is faster, works with tidyverse packages, and can combine different geometry types in 
-#the same object
+#As mentioned above, the sf package has many of sp's functionality, but has a couple of important advantages, namely, that it is faster, works with tidyverse packages, and can combine different geometry types in the same object
 
 #reading in csv files with sf is similar to sp
-elk_data <- read.csv("Spatial_Wiggins_Elk.csv", header = T, stringsAsFactors = F)
+elk_data <- read.csv("Seminar 1 Spatial Data in R/Spatial_Wiggins_Elk.csv", header = T, stringsAsFactors = F)
 elk_data$Date_Time <- as.POSIXct(elk_data$Date_Time, "%Y-%m-%d %H:%M:%S", tz = "MST")
 elk_data <- elk_data[elk_data$Latitude > 20,] #don't forget we corrected that outlier!
 elk_sf <- st_as_sf(elk_data, 
@@ -216,9 +219,8 @@ elk_sf <- st_as_sf(elk_data,
 elk_sf <- st_as_sf(elk_utm)
 
 #As is loading in ESRI Shapefiles
-rivers_sf <- st_read('wiggins_rivers.shp')
-pub_lands_sf <- st_read('wiggins_lands.shp')
-
+rivers_sf <- st_read('Seminar 1 Spatial Data in R/wiggins_rivers.shp')
+pub_lands_sf <- st_read('Seminar 1 Spatial Data in R/wiggins_lands.shp')
 
 #Plotting with sf shows a summary for each layer
 plot(elk_sf)
@@ -227,7 +229,7 @@ plot(elk_sf)
 plot(elk_sf['dist_river'])
 
 #and use ggplot2 to make nice maps quite quickly...
-ggplot() + geom_sf(data = elk_sf, aes(color = dist_river)) + 
+ggplot() + geom_sf(data = elk_sf, aes(color = dist_river)) +
   geom_sf(data = rivers_sf) +
   annotation_scale(location = "br", width_hint = 0.5) +
   annotation_north_arrow(location = "bl", which_north = "true", 
@@ -241,8 +243,7 @@ map
 
 #note: you can add multiple layers to mapview by entering them as a list(), and including a vector of layer names
 
-#and of course sf has some useful spatial functions. For instance joins can take attributes from one
-#object and add them to another.
+#and of course sf has some useful spatial functions. For instance joins can take attributes from one object and add them to another.
 
 pub_lands_sf$id <- as.factor(1:312) #make a unique index for each polygon
 elk_sf <- st_join(elk_sf, pub_lands_sf, join = st_intersects, left = T) #adds all pub_lands_sf attributes
@@ -256,16 +257,14 @@ map <- mapview(tract_point_sf['freq'],
                layer.name = '# locations')
 map
 
-
-#sf also has its own distance function, st_distance(), you may see some tutorials with the following 
-#method...
+#sf also has its own distance function, st_distance(), you may see some tutorials with the following method...
 
 #(Don't run)
 #dist <- st_distance(y=elk_sf, x=rivers_sf) # a matrix of all pair-wise distances (all pnts to all lines)
 #elk_sf$dist_river_sf <- apply(dist, 2, min) #run through, finding the minimum for each one
 
-#...but I find the for loop much faster. Let's compare with the earlier sp version by timing it, and we'll
-#make a new column so we can check the values between the methods
+#...but I find the for loop much faster. Let's compare with the earlier sp version by timing it, and we'll make a new column so we can check the values between the methods
+
 dechrau <- Sys.time() #start the timer
 for (i in 1:length(elk_sf)) {
   elk_sf$dist_river_sf[i] <- min(st_distance(y=elk_sf[i,], x=rivers_sf, by_element = T))
@@ -276,29 +275,25 @@ print(paste("Measurements took",round(diwedd-dechrau,2),attributes(amser)$units,
 
 head(elk_sf) #values are the same, but its much faster (I hope!)
 
-############################################################################################################
+###############################################################################################
 #Rasters#
-#So far we have concentrated on vector data; points, lines and polygons. A fourth and very important data
-#type is the raster. These are essentially 2D matrices that represent a grid of the earth's surface. For
-#satellite imagery, each cell represents a pixel from the image. A common use of the raster datatype is
-#elevation data...
+
+#So far we have concentrated on vector data; points, lines and polygons. A fourth and very important data type is the raster. These are essentially 2D matrices that represent a grid of the earth's surface. For satellite imagery, each cell represents a pixel from the image. A common use of the raster datatype is elevation data...
 
 #Loading Digital Elevation Model (DEM) for our area...
-elev <- raster('wiggins_dem.tif')
+elev <- raster('Seminar 1 Spatial Data in R/wiggins_dem.tif')
 plot(elev) ; plot(elk_sf[2], add=T) #plot elevation and overlay the elk locations
 
 #hist() will give you a summary histogram of values in the raster
 hist(elev)
 
 #we can get some info about our raster easily...
-extent(elev)
-res(elev)
-crs(elev)
+extent(elev)#xmin, xmax, ymin, ymax
+res(elev) #resolution
+crs(elev) #CRS projection 
 elev #calling elev will give us a lot of summary info at once
 
-#The raster package is one of the most comprehensive packages available for R. The documentation is excellent
-#and I encourage you to read it to see the breadth of things you can do. It was also written by a former
-#Berkeley MVZ post-doc, Go Bears!
+#The raster package is one of the most comprehensive packages available for R. The documentation is excellent and I encourage you to read it to see the breadth of things you can do. It was also written by a former Berkeley MVZ post-doc, Go Bears!
 
 #For instance, raster contains useful terrain functions for calculating aspect, slope etc.
 asp <- terrain(elev, opt = "aspect")
@@ -314,31 +309,24 @@ plot(dem)
 #Individual layers in a stack can be called using the $ operator
 dem$wiggins_dem
 
-#Think of a stack as a 3D matrix, where each layer or slice represents a new dimension of the same
-#area in space (in our example, elevation, aspect and slope). For multi-spectral imagery, the layers
-#often correspond with the different spectral bands (e.g. IR, visible light bands). When measuring things 
-#like NDVI, we might stack revisits by the satellite and index them by time, allowing us to look at trends 
-#over the seasons (i.e. phenology) or to look at conditions on the ground in time and space for use in our 
-#movement models (see session on SSFs).
+#Think of a stack as a 3D matrix, where each layer or slice represents a new dimension of the same area in space (in our example, elevation, aspect and slope). For multi-spectral imagery, the layers often correspond with the different spectral bands (e.g. IR, visible light bands). When measuring things like NDVI, we might stack revisits by the satellite and index them by time, allowing us to look at trends over the seasons (i.e. phenology) or to look at conditions on the ground in time and space for use in our movement models (see session on SSFs).
 
 #Some restrictions on stacks are; they must have the same extent, resolution and projection.
 
 #Notice that our rivers and public lands objects are smaller than the dem raster...
 st_bbox(pub_lands_sf)
 st_bbox(elev)
-plot(elev) ; plot(pub_lands_sf[1], add=T) #plot elevation and overlay the elk locations
+plot(elev) ; plot(pub_lands_sf[1], add=T) #plot elevation and overlay the public lands
 
 #But we can use the crop function to cut the object to the extent of another
 sm_dem <- crop(dem, pub_lands_sf)
-plot(sm_dem$wiggins_dem, axes=T) ; plot(pub_lands_sf[1], add=T) #plot elevation and overlay the elk locations
+plot(sm_dem$wiggins_dem, axes=T) ; plot(pub_lands_sf[1], add=T) #plot elevation and overlay the public lands 
 
 #or even mask the raster to the outline of the polygon
 mask_dem <- mask(dem, pub_lands_sf) #Masking some times takes a while...
 plot(mask_dem$wiggins_dem, axes=T) #There are no polygons in the middle (private land), so the data are NA
 
-
-#For movement modelling, you might want to sample the raster values at each location, which can be easily done
-#using raster's extract() function
+#For movement modelling, you might want to sample the raster values at each location, which can be easily done using raster's extract() function
 
 elk_sf$id = seq_len(nrow(elk_sf)) #extract needs sf objects to have a unique index called id
 elk_sf$elevation <- extract(sm_dem$wiggins_dem, elk_sf) #was that fast?!
@@ -348,24 +336,26 @@ plot(elk_sf['elevation'])
 #and remember the data in sf objects can be treated just like regular data frames...
 plot(elk_sf$Date_Time, elk_sf$elevation, axes = T) #annual cycle of elk elevation
 
-
 #Exercise 4:
-#Using the functions in sf and raster, sample the mean elevation in each polygon and add it to the 
-#pub_lands_sf attribute table as 'mean_elev (10 mins)
+#Using the functions in sf and raster, sample the mean elevation in each polygon and add it to the pub_lands_sf attribute table as 'mean_elev (10 mins)
 
-#HINT: This should be done in two steps. Assign the output of the first step to a temp object, 
-#what is the output type and structure? Look at the sapply function docs, how can we use it to get 
-#the mean for each polyon id back in to our polygon sf object?
+#HINT: This should be done in two steps. Assign the output of the first step to a temp object, what is the output type and structure? Look at the sapply function docs, how can we use it to get the mean for each polyon id back in to our polygon sf object?
 
-#----------------------------------------------------------------------------------------------------------
+#----------------------------------------------------------------------------------------------
 #Answer 4:
 
-#----------------------------------------------------------------------------------------------------------
+#First, create an object that has the elevation and public lands polygons. Use extract to sample elevation raster values for each public land polygon
+elev.land <- extract(sm_dem$wiggins_dem, pub_lands_sf)
 
-#This final bit of code makes an aesthetically pleasing map with contour lines and hillshade, feel free to
-#use it in your own work...
+#Next, add a column for mean elevation by using the sapply function
+pub_lands_sf$mean_elev <- sapply(elev.land, mean)
 
-# create hillshade
+plot(pub_lands_sf['mean_elev'])
+#----------------------------------------------------------------------------------------------
+
+#This final bit of code makes an aesthetically pleasing map with contour lines and hillshade, feel free to use it in your own work...
+
+#Create hillshade
 hs = hillShade(slope = dem$slope, aspect = dem$aspect)
 plot(hs, col = gray(0:100 / 100), legend = FALSE)
 # overlay with DEM
@@ -382,8 +372,7 @@ dem_df <- as.data.frame(dem$wiggins_dem, xy=T)
 hs <- as.data.frame(hs, xy=T)
 str(dem_df)
 
-#This plot may take 5 mins to render on the lab's machines, so try loading 'wiggins_dem_with_hill.png'
-#instead...
+#This plot may take 5 mins to render on the lab's machines, so try loading 'wiggins_dem_with_hill.png'instead...
 
 ggplot() +
   geom_raster(data = dem_df , aes(x = x, y = y, fill = wiggins_dem)) +
@@ -397,12 +386,26 @@ ggplot() +
 ggsave(filename = 'wiggins_dem_with_hill.png', plot = last_plot())
 
 #Exercise 5:
-#Using everything you've learned in this session, pick a new terrain metric (look at the docs) and 
-#sample it for each elk location. Then produce a map including these elk locations, a dem basemap, 
-#hillshade. Make it as aesthetically pleasing as possible using scale_fill_viridis_c() or
-#terrain.colors(). (15 mins)
+#Using everything you've learned in this session, pick a new terrain metric (look at the docs) and sample it for each elk location. Then produce a map including these elk locations, a dem basemap, hillshade. Make it as aesthetically pleasing as possible using scale_fill_viridis_c() or terrain.colors(). (15 mins)
 
-#----------------------------------------------------------------------------------------------------------
-#Answer 5:
+#----------------------------------------------------------------------------------------------
+#Answer 5: Using terrain ruggedness index (TRI)
 
-#----------------------------------------------------------------------------------------------------------
+#Define TRI as an object from the elevation data using the terrain() function
+tri <- terrain(dem$wiggins_dem, opt = "TRI")
+plot(tri)
+hist(tri)
+
+#Add TRI as a column to the elk location data by extracting (sampling) TRI for each elk location
+elk_sf$tri <- extract(tri, elk_sf)
+
+#Plot
+ggplot() +
+  geom_raster(data = dem_df , aes(x = x, y = y, fill = wiggins_dem)) +
+  geom_raster(data = hs , aes(x = x, y = y, alpha = layer)) +
+  geom_sf(data = elk_sf, aes(color = tri)) +
+  scale_alpha(range = c(0.15, 0.65), guide = "none") +  
+  scale_fill_viridis_c() +
+  coord_sf() +
+  theme_light()
+#----------------------------------------------------------------------------------------------
