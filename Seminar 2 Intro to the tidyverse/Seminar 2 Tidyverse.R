@@ -35,7 +35,7 @@ vicuna <- fread("Seminar 4 RSFs/vicuna_data_2015.csv",sep=",")
 class(vicuna)
 vicuna
 # however, if you have to read in a large file but still want to work with a tibble, 
-#   you can just transform the data structure
+# you can just transform the data structure
 vicuna <- as_tibble(vicuna)
 
 # readr::read_csv creates a tibble, which works well with piping other tidyverse commands
@@ -47,14 +47,13 @@ vicuna
 # Tibbles are enhanced data frames that force your tables to be cleaner
 # Review the data types of each column. Do they make sense?
 
-#-----------
 #Some basic functions to get to know your data
 
 # How many observations do you have? This command is applied to an entire tibble or dataframe
-nrow(vicuna)
+nrow(vicuna) #46039
 
 # How many variables do you have? This command is also applied to an entire tibble or dataframe
-ncol(vicuna)
+ncol(vicuna) #11 variables
 
 # How many values are there? This command can be applied to any vector
 length(vicuna$X1)
@@ -64,6 +63,7 @@ length(vicuna[1,])
 # "table" is a shortcut that can be great to check data for errors
 # A little later, we'll also go over how to summarize data in dplyr
 table(vicuna$animals_id)
+
 # To vizualize how this can be applied to multiple vectors, let's simulate some binomial data
 mutate(vicuna, random = rbinom(nrow(vicuna),1,0.5)) -> vicuna
 table(vicuna$animals_id,vicuna$random)
@@ -83,7 +83,8 @@ str(vicuna$acquisition_time)
 
 # It is always a good idea to look at your data and make sure it is formatted correctly before proceeding with analyses!
 # Look at histograms of your variables. Do they make sense? Are there weird outliers?
-#
+hist(vicuna$longitude)
+hist(vicuna$latitude)
 
 # -----------
 # Using tidyr - gather and spread
@@ -150,8 +151,7 @@ vicuna$hav.distance.to.first <- distHaversine(cbind(vicuna$longitude,vicuna$lati
 vicuna[,c(5:7,12)]
 
 # Making one new column is pretty much just as easy in base as in dplyr
-# The value of dplyr is that you can do a lot at once without making a bunch of new objects
-#   and you can visualize columns before you add them
+# The value of dplyr is that you can do a lot at once without making a bunch of new objects and you can visualize columns before you add them
 # Here we'll add two columns, distance and a random number from a normal distribution
 vicuna %>%
   mutate(hav.distance.to.first = distHaversine(cbind(longitude,latitude),(cbind(longitude[1],latitude[1]))),
@@ -191,7 +191,13 @@ summary_dist
 
 # Link up mutate, filter, select, and arrange all in one pipe and save a new tibble
 
+vicuna3 <- vicuna %>% 
+  mutate(unique_id = as.factor(1:nrow(vicuna))) %>% 
+  filter(animals_id > 16) %>% 
+  select(,4:7, "unique_id") %>% 
+  arrange(acquisition_time)
 
+vicuna3
 
 #__________********_________
 # Often times we have data from two different sources that we want to combine into one tbl
@@ -210,8 +216,8 @@ tibble(animalID = c(seq(1,5),seq(7,10)),
   sex = c(rbinom(9,1,0.5))) -> animal.sex
 
 tibble(animalID = c(seq(1,6),seq(8,10)),
-  site = c(rbinom(9,1,0.5))) %>%
-  mutate(site.factor = ifelse(site == 1, "A", "B")) %>%
+  site = c(rbinom(9,1,0.5))) %>% 
+  mutate(site.factor = ifelse(site == 1, "A", "B")) %>% 
   select(1,3) -> animal.site
 
 inner_join(animal.sex,animal.site)
@@ -238,16 +244,20 @@ inner_join(animal.sex,animal.site, by = c("name.of.animal" = "animalID"))
 # Hint: you can use rbinom, runif, or rnorm to generate your fake data
 # Hint2: use "unique" to get a vector of vicuna IDs
 
+ids <- unique(vicuna$animals_id)
+vicuna.add <- tibble(animals_id = ids, 
+                     random.num = c(rnorm(20, 0, 1)))
 
+join <- inner_join(vicuna, vicuna.add)
 
 #__________********_________
 # purrr helps to replace for loops by applying functions to subsets of data within a tbl
 # purrr relies on "map" commands
 
 vicuna %>%
-  split(.$animals_id) %>% # from base R
-  map(~ lm(hav.distance.to.first ~ random.number, data = .)) %>%
-  map(summary) %>%
+  split(.$animals_id) %>%  # from base R
+  map(~ lm(hav.distance.to.first ~ random.number, data = .)) %>% 
+  map(summary) %>% 
   map_dbl("r.squared")
 
 # In comparison to a base R approach:
@@ -261,15 +271,13 @@ for (i in 1:nrow(df)){
 }
 df
 
-# In this course, we will mostly use map to deal with splitting our data into individual animals
-#   and applying some model or function to animals seperately
+# In this course, we will mostly use map to deal with splitting our data into individual animals and applying some model or function to animals seperately
 
 
 #__________********_________
 # Time for TIME
 # Dealing with times in R can be magical, or it can be a pain in the a**
-# It's all about knowing what format and time zone your data are in
-#   and knowing how to transform them into the format and time zone you want
+# It's all about knowing what format and time zone your data are in and knowing how to transform them into the format and time zone you want
 # We will be very dependent on the package lubridate for all of our time needs
 
 # First, just for fun...what time is it?
@@ -279,18 +287,15 @@ now()
 vicuna %>%
   select(4:7) -> vicuna
 # Becasue we're only doing one command, this can actually be done without a pipe
-# e.g.
-# select(vicuna,4:7) -> vicuna
+# e.g.select(vicuna,4:7) -> vicuna
 # Here, I'm showing it as a pipe to help get used to the piping syntax
 
-# One of the truly mind-blowing things about lubridate is that it can handle multiple data formats at once
-#   As long as the parts of the date are in the right order!
+# One of the truly mind-blowing things about lubridate is that it can handle multiple data formats at once as long as the parts of the date are in the right order!
 x <- c(20090101, "2009-01-02", "2009 01 03", "2009-1-4",
        "2009-1, 5", "Created on 2009 1 6", "200901 !!! 07")
 ymd(x)
 
-# However, when we use read_csv, the tidy gods will automatically read our datetimes in as POSIX objects
-#   as long as they are formatted in a way the package can understand
+# However, when we use read_csv, the tidy gods will automatically read our datetimes in as POSIX objects as long as they are formatted in a way the package can understand
 str(vicuna$acquisition_time)
 
 # Before we do ANYTHING with GPS data, we need to confirm the time zone our GPS data are in
@@ -315,8 +320,7 @@ head(vicuna$acquisition_time)
 head(vicuna$timestamp)
 
 # What if the collars were programmed in California, but then brought down to Argentina?
-# Then we have to first assign the correct time zone to the datetimes (California),
-#   and then transform the times to the correct time zone (Argentina)
+# Then we have to first assign the correct time zone to the datetimes (California),and then transform the times to the correct time zone (Argentina)
 vicuna %>%
   mutate(timestamp = lubridate::with_tz(ymd_hms(acquisition_time,tz="America/Los_Angeles"),"America/Argentina/San_Juan")) -> vicunaCA2Arg
 vicunaCA2Arg
@@ -326,8 +330,7 @@ tz(vicunaCA2Arg$acquisition_time)
 tz(vicunaCA2Arg$timestamp)
 
 # Now that we feel good about our timezones, we can start manipulating our datetimes
-# With datetimes, we can extract a lot of data that is important to us
-#   including year, month, week of year, day of year, hour, etc.
+# With datetimes, we can extract a lot of data that is important to us including year, month, week of year, day of year, hour, etc.
 
 # First, let's go through ways of formatting datetimes
 # Generally, our movement data will be formatted as ymd_hms objects - year-month-day hour:minute:second
@@ -364,8 +367,23 @@ mutate(vicuna,timestamp = format(timestamp,format='%Y-%m-%d %H:%M'))
 # See if you can do it in one line of code!
 # How many rows are there in your new tibble?
 
+vic23 <- vicuna %>% 
+  filter(animals_id == 23) %>% 
+  filter(month(timestamp) == 02, hour(timestamp) == 03)
+
+vic23
+nrow(vic23) #28 rows in new tibble
+
 # ACTIVITY 2!
 # Save a new tibble with added columns for year, week of year, and hour that only has April datetimes
+
+vic.april <- vicuna %>% 
+  filter(month(timestamp) == 04) %>% 
+  mutate(year = year(timestamp)) %>% 
+  mutate(week = week(timestamp)) %>% 
+  mutate(hour = hour(timestamp))
+
+vic.april
 
 #__________********_________
 # Data visualization with ggplot
@@ -402,14 +420,14 @@ ggplot(data = mpg) +
 ggplot(data = mpg) + 
   geom_point(aes(x = displ, y = hwy, alpha = class))
 
-# To change the color off all points rather than by factor, take the color command out of the aes statement
+# To change the color of all points rather than by factor, take the color command out of the aes statement
 ggplot(data = mpg) + 
   geom_point(aes(x = displ, y = hwy), color = "red")
 
 # Once we start using shapes other than the default, we have other commands we can consider
 # For example, if we use a shape with a border, we can use "stroke" to specify the border width
 ggplot(mpg, aes(x = displ, y = hwy)) +
-  geom_point(shape = 21, color = "darkorange4", fill = "#EEE8CD", size = 3, stroke = 2)
+  geom_point(shape = 21, color = "blue", fill = "#EEE8CD", size = 2, stroke = 1.5)
 # *** Try modifying the border color, fill, size, and stroke
 
 # You can also plot based on a factor with facet wrap
@@ -463,8 +481,7 @@ ggplot(data = mpg) +
 
 #Now, continuous data
 # Base
-#   in base, we have a number of palettes available including heat.colors, terrain.colors, and rainbow
-#   and custom gradients
+# In base, we have a number of palettes available including heat.colors, terrain.colors, and rainbow and custom gradients
 ggplot(data = mpg) + 
   geom_point(aes(x = displ, y = hwy, color = cty))
 ggplot(data = mpg) + 
@@ -498,10 +515,9 @@ ggplot(data = mpg) +
 #   Replace the theme command below with these to see how they look!
 ggplot(data = mpg) + 
   geom_point(aes(x = displ, y = hwy, color = cty)) +
-  theme_classic()
+  theme_minimal()
 
-# That's it for colors and themes for now! It's a bottomless hole you may never escape, 
-#   but it's also a lot of fun
+# That's it for colors and themes for now! It's a bottomless hole you may never escape, but it's also a lot of fun
 # Things we didn't cover today: labels, legends, axes/scales 
 # If you are interested in learning more about customization, you can find a ton of information
 #   at https://ggplot2.tidyverse.org/index.html
@@ -525,8 +541,8 @@ ggplot(data = mpg) +
 ggplot(data = mpg) + 
   geom_violin(aes(x = class, y = hwy))
 # Violin PLUS data mean with standard error
-ggplot(data = mpg,aes(x = class, y = hwy)) + 
-  geom_violin() + 
+ggplot(data = mpg,aes(x = class, y = hwy)) +
+  geom_violin() +
   stat_summary()
 # We can also use geom_bar to illustrate means and standard errors, 
 #   but we have to calculate those values first
@@ -535,12 +551,22 @@ ggplot(data = mpg,aes(x = class, y = hwy)) +
 # Use "summarize" to calculate the mean and standard errors of hwy ~ class from the mpg dataset
 # Make a new tibble with these values called hwyplot
 
+hwyplot <- mpg %>% 
+  group_by(class) %>% 
+  summarize(meanhwy = mean(hwy),
+            sehwy = std.error(hwy))
+
 # Now we can make a barplot with means and error bars
 # To avoid geom_bar counting our data, we have to tell it to use the actual y value using stat = "identity"
 # Then we can add error bars using geom_errorbar
-ggplot(data = hwyplot,aes(x = class, y = meanhwy)) + 
+ggplot(data = hwyplot,aes(x = class, y = meanhwy, fill = class)) +
   geom_bar(stat = "identity") +
-  geom_errorbar(aes(ymin = meanhwy - sehwy, ymax = meanhwy + sehwy), width=0.2)
+  geom_errorbar(aes(ymin = meanhwy - sehwy, ymax = meanhwy + sehwy), width=0.2) +
+  theme_classic() +
+  xlab("Class") + ylab("Mean Hwy")+
+  scale_fill_brewer(palette = 5)
+
+#scale_color_gradientn(colors = brewer.pal(n = 3, name = "OrRd"))
 
 # Bonus! Change the color palette of your plot to an RColorBrewer palette
 #   Change the theme to your theme of choice!
