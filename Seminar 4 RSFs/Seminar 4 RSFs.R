@@ -1,9 +1,7 @@
 # Today we'll be doing some basic habitat selection analyses by fitting resource selection functions (RSFs)
-# Because animal movement data only gives us used (and non unused) locatations, we generally can't
-#   fit resource selection probability functions, or RSPFs. 
+# Because animal movement data only gives us used (and non unused) locatations, we generally can't fit resource selection probability functions, or RSPFs. 
 # However, by randomly sampling available locations, we can approximate habitat selection with RSFs.
-# We will go through how to sample available locations and model habitat selection today using 
-#   GPS data from vicuñas.
+# We will go through how to sample available locations and model habitat selection today using GPS data from vicuñas.
 
 install.packages("tidyverse")
 install.packages("lubridate")
@@ -50,8 +48,9 @@ library(gridExtra)
 # Read in, clean, and project all your data - in a single pipe!
 # use read_csv to bring in data
 vicuna <- read_csv("Seminar 4 RSFs/vicuna_data_2015.csv") %>% 
-  # We'll make a timestamp column with the correct time zone
-  # we will also create a day/night column to differentiate day and night
+
+# We'll make a timestamp column with the correct time zone
+# we will also create a day/night column to differentiate day and night
   mutate(timestamp = with_tz(force_tz(acquisition_time,tz = "America/Los_Angeles"),tz="America/Argentina/San_Juan"),
          sunrise = sunriset(SpatialPoints(cbind(longitude,latitude), proj4string=CRS("+init=epsg:4326")), timestamp, direction="sunrise", POSIXct.out=TRUE)[,2],
          sunset = sunriset(SpatialPoints(cbind(longitude,latitude), proj4string=CRS("+init=epsg:4326")), timestamp, direction="sunset", POSIXct.out=TRUE)[,2],
@@ -101,8 +100,7 @@ mapview(envtrasters[[2]]) + mapview(vicuna_hr[1])
 mapview(envtrasters[[4]]) + mapview(vicuna_hr[18,1])
 
 # Keep in mind temporal effects!
-# RSF may be a spatial analysis but if we think selection or availability may change over time, 
-#   we should consider that in our modeling approach
+# RSF may be a spatial analysis but if we think selection or availability may change over time we should consider that in our modeling approach.
 # We can control for time either via appropriate covariate inclusion, or simply by limiting our scope.
 # Let's say we only want to know how vicuñas select habitat in winter (June-Sept) during the day
 
@@ -157,7 +155,7 @@ plot(st_geometry(filter(vicuna_all,ID == 16,Used == 1)),add=T)
 # We will use raster::extract to get environmental values for each used and available location
 # We will also scale and center environmental covariates
 # There are two main reasons to scale covariates:
-#   1. it allows to to compare the relative strength of each variable by looking at the coefficient values alone
+#   1. it allows us to compare the relative strength of each variable by looking at the coefficient values alone
 #   2. sometimes if your variables are on really different scales, the model won't converge
 vicuna_all %>% mutate(NDVI = raster::extract(envtrasters[[4]], as(., "Spatial")),
                      elev = raster::extract(envtrasters[[1]], as(., "Spatial")),
@@ -182,19 +180,21 @@ print(NDVIscalelist <- list(scale = attr(vicuna_full$NDVI.scaled, "scaled:scale"
 # For example, look at the center parameter for NDVI.scaled. Are the values positive when NDVI is above that value?
 vicuna_full
 
+#center parameter for NDVI.scaled is 0.119. When the NDVI score is >0.119 --> NDVI scaled is postitive and when the NDVI score is <0.119 --> NDVI scaled is negative
+
 # When we run our model, we want to make sure that the animal ID is treated as a factor
 vicuna_full$ID <- as_factor(vicuna_full$ID)
 
 # Before we run any models, we need to check for colinearity among habitat covariates 
-# If two covariates are correlated, including them in the same model can overinflate their standard errors 
-#   and make it appear that they are not good predictors (when they acutally might be!)  
+# If two covariates are correlated, including them in the same model can overinflate their standard errors and make it appear that they are not good predictors (when they acutally might be!)  
 # General practice is to not include two covariates for which r > 0.7 (or, conservatively, 0.5)
 vicuna_cor <- vicuna_full
-st_geometry(vicuna_cor) <- NULL
-cor(vicuna_cor[,c(5:8)])
-rm(vicuna_cor)
+st_geometry(vicuna_cor) <- NULL #getting rid of the geometry column
+cor(vicuna_cor[,c(5:8)]) #selecting only the env. raster predictors and looking at r values for their correlations
+rm(vicuna_cor) #removing this vicuna_cor object
 
 # Are any of our covariates correlated?
+#YES--slope and tri are highly correlated! (r = 0.987)
 
 
 # As a first pass, let's fit a population-level RSF (using fixed effects only)
@@ -203,6 +203,7 @@ summary(fixed.global <- glm(Used ~ NDVI.scaled + elev.scaled + slope.scaled, dat
 summary(fixed.global <- glm(Used ~ NDVI.scaled + elev.scaled + tri.scaled, data=vicuna_full, family=binomial(link="logit")))
 
 # Does slope or ruggedness improve model fit more?
+#AIC 21982 vs AIC = 21973 --> slope improves model fit more
 
 # Next, we'll fit a mixed-effects binomial logistic regression
 # i.e. an RSF that accounts for variation among individuals
@@ -212,8 +213,7 @@ summary(fixed.global <- glm(Used ~ NDVI.scaled + elev.scaled + tri.scaled, data=
 
 # First: what is a random effects model?
 #   A type of hierarchical linear model, whereby the data being analyzed are drawn from a hierarchy of populations
-#   Or, more simply, a model that contains random variables, which fits the coefficient values with random
-#     effects independently for each sub-populations
+#   Or, more simply, a model that contains random variables, which fits the coefficient values with random effects independently for each sub-populations
 
 # Let's explore how random effects alter model shape
 # To do this, we'll vary the slope and intercept of a logistic regression model and visualize the differences
@@ -258,32 +258,34 @@ points(fakeym1.5~fakex,ylim=c(0,1),col="red")
 # Random intercept model
 #   Most common way to include a random effect
 #   Addresses variation in sample sizes, moves logistic curve left and right
-# Example hypothesis: general strength of selection varies by individual
+# Example hypothesis: general strength of selection varies by individual--> include individualvicuna ID as a random effect (points from individuals are clustered); this will create a different intercept for each individaul, but the slope of each line will be the same
+
 random.int.global <- glmer(Used ~ NDVI.scaled + elev.scaled + slope.scaled + (1|ID), 
                            data=vicuna_full, family=binomial(link="logit"))
+
 # Look at the AIC and strength of individual covariates
 summary(random.int.global)
+
 # Look at coefficient values for all covariates for each individual
 coef(random.int.global)
+
 # Isolate just the random effects. How is "ranef" related to the first column of "coef"?
 ranef(random.int.global)
 
 # Random slope model
-#   Use a random slope if you think individuals respond differently to environmental covariates
+#   Use a random slope if you think individuals respond differently to environmental covariates --> the way the environmental covariates impact vicuna use is different for different individuals (different slopes for each individual, but same intercept)
 #   Risk in over-fitting, but the good news is that you can test for that in the cross-validation process
-# Example hypothesis: some individuals select for vegetation, whereas others do not, 
-#   because of variation in internal state and risk-foraging tradeoffs
-random.slp_ndvi.global <- glmer(Used ~ NDVI.scaled + elev.scaled + slope.scaled + (0+NDVI.scaled|ID), 
-                                data=vicuna_full, family=binomial(link="logit"))
+# Example hypothesis: some individuals select for vegetation, whereas others do not, because of variation in internal state and risk-foraging tradeoffs
+random.slp_ndvi.global <- glmer(Used ~ NDVI.scaled + elev.scaled + slope.scaled + (0+NDVI.scaled|ID), data=vicuna_full, family=binomial(link="logit")) #this is saying, for each individual vicuna ID, the way that NDVI effects use is different, and estimate a different slope for each
+
 summary(random.slp_ndvi.global)
 coef(random.slp_ndvi.global)
 ranef(random.slp_ndvi.global)
 
 # Both random slope and intercept
-# Example hypothesis: some individuals select for ruggedness, whereas others avoid it, 
-#   because of variation in boldness, and general strength of selection varies by individual
-random.int.slp_tri.global <- glmer(Used ~ NDVI.scaled + elev.scaled + slope.scaled + (1+tri.scaled|ID), 
-                                  data=vicuna_full, family=binomial(link="logit"))
+# Example hypothesis: some individuals select for ruggedness, whereas others avoid it, because of variation in boldness, and general strength of selection varies by individual --> will estimate a different intercept for each individual AND a different slope that indicates how ruggedness influence vicuna use in each individual
+random.int.slp_tri.global <- glmer(Used ~ NDVI.scaled + elev.scaled + slope.scaled + (1+tri.scaled|ID), data=vicuna_full, family=binomial(link="logit"))
+
 summary(random.int.slp_tri.global)
 coef(random.int.slp_tri.global)
 ranef(random.int.slp_tri.global)
@@ -295,11 +297,19 @@ ranef(random.int.slp_tri.global)
 # Your turn! Come up with some alternative hypotheses
 # List your candidate models below based on your alternative hypotheses
 # Run your candidate models
+
+#general strength of selection varies by individual
 model1<-glmer(Used ~ NDVI.scaled + elev.scaled + slope.scaled + (1|ID), 
               data=vicuna_full, family=binomial(link="logit"))
-model2<-
-model3<-
-model4<-
+
+#some individuals select for ruggedness, whereas others do not, because of variation in internal state and individual preferences
+model2 <- glmer(Used ~ NDVI.scaled + elev.scaled + tri.scaled + (1+tri.scaled|ID), data=vicuna_full, family=binomial(link="logit"))
+
+#some individuals select for vegetation, others avoid it, because of variation in foraging preferences and general strength of selection varies by individual
+model3<- glmer(Used ~ elev.scaled + slope.scaled + (0+NDVI.scaled|ID), data=vicuna_full, family=binomial(link="logit"))
+
+#some individuals select for slopes, whereas others avoid it, because of variation in boldness and general strength of sleection varies by individual
+model4<- glmer(Used ~ elev.scaled + tri.scaled + NDVI.scaled + (1+slope.scaled|ID), data=vicuna_full, family=binomial(link="logit"))
 
 # Make a list of your models and compare the deltaAIC, log likelihook, and akaike weights
 cand.models<-c(model1,model2,model3,model4)
@@ -307,14 +317,13 @@ print(df.kill.models <- data.frame(aictab(cand.models)))
 
 #----------
 # How do we decide which points are predicted to be used or available?
-# Do determine this, we calculate the optimal cutoff between used and available
-#   that maximizes sensitivity and specificity
+# To determine this, we calculate the optimal cutoff between used and available that maximizes sensitivity and specificity
 # Sensitivity: true positive rate 
 # Specificity: true negative rate 
 
 # Determine model cutoff between "used" and "available". This will help you interpret the visualizations.
 # Enter your top model name in the "fitted" command below
-fittedmod<-fitted(model1)
+fittedmod<-fitted(model2)
 target_pred<-as.matrix(fittedmod)
 target_class<-as.matrix(as.factor(vicuna_full$Used))
 pred<-prediction(target_pred,target_class)
@@ -325,8 +334,7 @@ sum = tpr + (1-fpr)
 index = which.max(sum) 
 print(cutoff <- perf@alpha.values[[1]][[index]])
 
-# To get an initial feel for how good your model performed, you can look at the sensitivity and specificity
-#   in an ROC curve
+# To get an initial feel for how good your model performed, you can look at the sensitivity and specificity in an ROC curve
 # A strong model has an area-under-the-curve (AUC) of over 0.8.
 # An AUC of 0.5 means the model cannot discriminate between a true and false positive
 plot(perf,col="black",lty=3, lwd=3)
@@ -349,19 +357,15 @@ legend(0.4,0.4,c(minauct,"\n"),border="white",cex=1.7,box.col = "white")
 
 
 #------------
-# Visualizing your model in space:
-#   predict your model output to a predictive surface
+# Visualizing your model in space: predict your model output to a predictive surface
 
-# Ideally, we would be able to create a spatial predictive surface of habitat selection using our 
-#   environmental layers
+# Ideally, we would be able to create a spatial predictive surface of habitat selection using our environmental layers
 # To do this, we could try to fit our model using the unscaled variables to match the original raster scales
 random.int.raw <- glmer(Used ~ NDVI + elev + slope + (1|ID), 
                           data=vicuna_full, family=binomial(link="logit"))
 
 # You'll note that the model doesn't converge because of the very different scales of the covariates
-# When this happens, you have to instead convert the rasters to the scale 
-#   of the centered and normalized covariates in the model for mapping
-# To do this, we'll revisit our scale parameters for our covariates
+# When this happens, you have to instead convert the rasters to the scale of the centered and normalized covariates in the model for mapping. zTo do this, we'll revisit our scale parameters for our covariates
 
 # Make a new raster stack with just the covariates in the model
 env.rasters <- stack(envtrasters[[4]], envtrasters[[1]], envtrasters[[2]])
@@ -378,8 +382,7 @@ names(env.rasters) <- c("NDVI.scaled", "elev.scaled", "slope.scaled")
 predictionmap<-raster::predict(object=env.rasters,model=model1,
                                re.form = NA,type="response")
 
-# To visualize the differences among individuals, let's also map the individuals with the 
-#   greatest deviations from the model intercept
+# To visualize the differences among individuals, let's also map the individuals with the greatest deviations from the model intercept
 ranef(model1)
 predictionmap.2<-raster::predict(object=env.rasters,model=model1,
                                const=(data.frame(ID="16")),type="response")
