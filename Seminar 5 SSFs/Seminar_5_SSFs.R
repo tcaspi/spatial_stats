@@ -1,13 +1,9 @@
 # Today we'll be going over step-selection functions to model habitat selection
-# Specifically, we'll prepare the data, sample available locations, fit three different kinds
-#   of models, and assess model performance with cross-validation
-# We will talk about SSFs vs. iSSFs, fixed effects models vs. GEEs vs. mixed effects models,
-#   and how to think about autocorrelation and correlation within individuals
+# Specifically, we'll prepare the data, sample available locations, fit three different kinds of models, and assess model performance with cross-validation
+# We will talk about SSFs vs. iSSFs, fixed effects models vs. GEEs vs. mixed effects models, and how to think about autocorrelation and correlation within individuals
 
 # Fundimentally, an SSF measures habitat selection along the movement path of an animal
-# In comparison to an RSF, it better represents actual selection decisions made by animals 
-#   in real time, as they choose to move to specific locations out of a limited possibilies 
-#   available to them at each step
+# In comparison to an RSF, it better represents actual selection decisions made by animals in real time, as they choose to move to specific locations out of a limited possibilies available to them at each step
 
 # First, install your packages
 
@@ -61,7 +57,7 @@ puma_tr1 <- read_csv("Seminar 5 SSFs/puma_data_2015.csv") %>%
 # To treat each animal differently, we will nest the data by animal ID
 puma_tr1 <- puma_tr1 %>%  nest(-ID) 
 # Check out the structure of the data
-puma_tr1
+puma_tr1 #each puma gets it own dataframe with acq time, long, lat, and timestamp
 
 # Now we'll make a "track", which is used by package amt for movement analysis
 # This format helps amt to manage with variable fix rates and fix success so you don't have to!
@@ -88,19 +84,18 @@ puma_tr1 %>%
       filter_min_n_burst(min_n = 2)})) -> ssfdat
 
 # Did we get rid of any locations?
-# Compare the dimentions of our individual tracks in comparison to the steps we're keeping
+# Compare the dimensions of our individual tracks in comparison to the steps we're keeping
 ssfdat
 
 # Check out the sampling rate of each of our study animals
-# Do the medians look about right? What do you notice about the max values?
-# Take a close look at the means. Which animals do you think have 
-#   lower fix success?
+# Do the medians look about right? What do you notice about the max values? <- max value of 500 suggests no fix on the animal for 20 days at one point???
+
+# Take a close look at the means. Which animals do you think have lower fix success? <-the pumas withthe higher means have lower fix rate success. should be as close to 3 as possible for high sucess rate
 ssfdat %>%
   mutate(sr = lapply(steps, summarize_sampling_rate)) %>% 
   dplyr::select(ID, sr) %>%  unnest
 
-# Next we simulate steps from our distribution of step lengths and turn angles, 
-#   and extract the covariates for each step. 
+# Next we simulate steps from our distribution of step lengths and turn angles, and extract the covariates for each step. 
 
 # A note on extracting covariates:
 # Generally we extract covariates at the END points of each step
@@ -115,13 +110,13 @@ ssfdat %>%
 # As an interaction term - to see if the start location influences the end location or a 
 #   movement parameter
 #   e.g. a habitat that is hard to move through
-#   e.g. due to group/herd effects
+#   e.g. due to group/herd effects <- less likely to leave if their whole group is there?
 # In the extract_covariates command, use where = "start", "end", or "both" depending on 
 #   your goals
 
 # Here we make a function that will apply a bunch of commands to each of our individual animals
-# In this one piped function, we can sample random points, make a day/night covariate, and 
-#   extract covariates!
+# In this one piped function, we can sample random points, make a day/night covariate, and extract covariates!
+
 ssfdat %>%
   mutate(moddata = map(steps, function (x){
     x %>% 
@@ -132,6 +127,9 @@ ssfdat %>%
       time_of_day(where = "start") %>% 
       # Extract covariates from our raster stack
       amt::extract_covariates(envtrasters,where="both")})) -> ssfdat
+
+#the above code says, create a moddata column where, for every step, randomly sample 10 steps, determine whether it is day or night, and extract covariates from the raster stack for the start and the end of the step
+
 
 # We need to scale our covariates, but right now our data are in different tibbles by individual
 # If we want to scale the covariates from all the data, we need to make a single dataframe
@@ -206,11 +204,12 @@ ssfdat.all %>%
 # Let's also look at what used and available steps look like
 # Here, the black point is our starting location and the colored points are our end locations
 ssfdat.all %>% 
-  filter(step_id_ == 1, ID == 6) %>% 
+  filter(step_id_ == 2, ID == 6) %>% 
   ggplot(.) + geom_point(aes(x = x2_,y = y2_,color = as.factor(case_))) + 
   geom_point(aes(x = x1_, y = y1_))
 
 # Check out some other strata to see how they look by modifying the ID and step_id_
+#ID = which puma you are looking at; step_id_ = which step you are looking at
 
 #----------***------------
 # A note on behaviors
@@ -230,8 +229,7 @@ ssfdat.all %>%
 # Now to the models!
 # As with RSFs, start by writing out your candidate models
 # Here are just a few examples of ways you can structure your models based on different hypotheses
-# Generally you will use a cluster() term any time you fit SSFs, particulalry if your data are 
-#   autocorrelated.
+# Generally you will use a cluster() term any time you fit SSFs, particularly if your data are autocorrelated.
 # Therefore, these models below aren't really complete
 # Here we'll just check them out to get a rough idea of hypothesis testing and model fit
 
@@ -283,12 +281,9 @@ summary(m3)
 #   by breaking individual animal data into groups 
 # However, becasue there is  temporal autocorrelation WITHIN individual animals,
 #   we need to use destructive sampling to make sure the groups are not temporally autocorrelated, 
-#   so we remove data between groups for the time period in which temp AC exists based on the 
-#     ACF (autocorrelation function)
+#   so we remove data between groups for the time period in which temp AC exists based on the ACF (autocorrelation function)
 # This is called "destructive sampling" because you are actually throwing away data
-# The GEE approach DOES NOT impact the fit of the coefficent values, but only helps to accurately 
-#   calculate the robust standard errors 
-#     (by accounting for heteroskedasticity, i.e. differential variance among sub-populations)
+# The GEE approach DOES NOT impact the fit of the coefficent values, but only helps to accurately calculate the robust standard errors (by accounting for heteroskedasticity, i.e. differential variance among sub-populations)
 
 
 # After fitting a non-clustered model, we can use the residuals in the model to look at autocorrelation
@@ -305,11 +300,9 @@ acf.test <- function (residuals, id, type = c("correlation", "covariance","parti
 acf.test(m0$residuals,ssfdat.all$ID, type = "correlation")
 
 # Now we should use our ACF analysis to eliminate autocorrelation between clusters
-# Because our lag is 2, we could just split each puma into two-three equal sized samples with 2 points
-#   removed in between
+# Because our lag is 2, we could just split each puma into two-three equal sized samples with 2 points removed in between
 # Or you can split individuals by natural breaks in the data (still with the lag size removed)
-# Buuuut for now (just to see how the model works) we're just going to make clusters by animal ID 
-#   and year without eliminating the autocorrelated points (Don't do this in your analysis!)
+# Buuuut for now (just to see how the model works) we're just going to make clusters by animal ID and year without eliminating the autocorrelated points (Don't do this in your analysis!)
 
 ssfdat.all %>% 
   mutate(year = year(t1_)) %>% 
@@ -363,24 +356,28 @@ kfold.CV %>%
 
 #_________________***__________________
 # The second way to deal with correlated data is using random effects (like we did with RSFs)
-# The assumptions here are different! We don't need to have temporal autocorrelation within 
-#   individuals but we expect that habitat selection varies among individuals
+# The assumptions here are different! We don't need to have temporal autocorrelation within individuals but we expect that habitat selection varies among individuals
 # Unlike the GEE models that just correct your SEs, mixed-effects models will also change 
 #   your coefficient estimates
 
 # Random effects SSF with the coxme package
 
+library(coxme)
+
 m0_me<-coxme(Surv(rep(1, length(ssfdat.all$ID)), case_) ~ elev_s_end + tri_s_end + ndvi_s_end +
                  strata(stepID) + (1|ID),
                data = ssfdat.all, na.action = na.fail)
+
 m1_me<-coxme(Surv(rep(1, length(ssfdat.all$ID)), case_) ~ elev_s_end + tri_s_end + ndvi_s_end + 
                 ndvi_s_end:tod_start_ +
                 strata(stepID) + (1|ID),
                 data = ssfdat.all, na.action = na.fail)
+
 m2_me<-coxme(Surv(rep(1, length(ssfdat.all$ID)), case_) ~ elev_s_end + tri_s_end + ndvi_s_end + 
                 tri_s_end:log_sl +
                 strata(stepID) + (1|ID),
                 data = ssfdat.all, na.action = na.fail)
+
 m3_me<-coxme(Surv(rep(1, length(ssfdat.all$ID)), case_) ~ elev_s_end + tri_s_end + ndvi_s_end + 
                ndvi_s_end:ndvi_s_start +
                strata(stepID) + (1|ID),
@@ -388,8 +385,8 @@ m3_me<-coxme(Surv(rep(1, length(ssfdat.all$ID)), case_) ~ elev_s_end + tri_s_end
 
 summary(m0_me)
 
-lrtest(m0_me,m1_me,m2_me,m3_me)
-model.sel(m0_me,m1_me,m2_me,m3_me,rank=AIC)
+lrtest(m0_me,m1_me, m3_me)
+model.sel(m0_me,m1_me, m3_me,rank=AIC)
 
 
 # Unfortunately there is no kfold command for coxme
@@ -431,7 +428,7 @@ ssf_coefs <- m.ind %>%
 # Just to make it a little more interesting, we can add the sex of the animals for our vizualization
 n.covs <- 3
 unique(m.ind$ID)
-mutate(ssf_coefs, sex = c(rep(c("f","f","m","m","m","f","m","m","f"),each = n.covs))) -> ssf_coefs
+mutate(ssf_coefs, sex = c(rep(c("f","f","m","m","m","f","m"),each = n.covs))) -> ssf_coefs
 
 # Plot the coefficients!
 ssf_coefs %>% 
